@@ -6,11 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import Index from "./pages/Index";
-import Upload from "./pages/Upload";
+import VehicleDetection from "./pages/VehicleDetection";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Setup from "./pages/Setup";
-import VehicleDetection from "./pages/VehicleDetection";
 
 const queryClient = new QueryClient();
 
@@ -23,10 +22,9 @@ const App = () => (
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/upload" element={<Upload />} />
+            <Route path="/upload" element={<VehicleDetection />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/setup" element={<Setup />} />
-            <Route path="/detection" element={<VehicleDetection />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>

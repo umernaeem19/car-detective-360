@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Car, Upload, LayoutDashboard, Menu, X } from "lucide-react";
+import { Car, Camera, LayoutDashboard, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +26,7 @@ const Navbar = () => {
 
   const navLinks = [
     { href: "/", label: "Home", icon: <Car className="h-4 w-4 mr-2" /> },
-    { href: "/upload", label: "Upload", icon: <Upload className="h-4 w-4 mr-2" /> },
+    { href: "/upload", label: "Vehicle Detection", icon: <Camera className="h-4 w-4 mr-2" /> },
     { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
   ];
 
