@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Upload from "./pages/Upload";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import Setup from "./pages/Setup";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/setup" element={<Setup />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>
