@@ -1,8 +1,7 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, Camera, Play, Square, Save, AlertCircle } from "lucide-react";
+import { Upload, Camera, Play, Square, Save, AlertCircle, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -16,6 +15,7 @@ const VehicleDetection = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processedVideoRef = useRef<HTMLVideoElement>(null);
   
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -24,6 +24,7 @@ const VehicleDetection = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [detectionResults, setDetectionResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [processedVideo, setProcessedVideo] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -33,7 +34,6 @@ const VehicleDetection = () => {
         setVideoFile(file);
         setError(null);
         
-        // Display the video in the player
         if (videoRef.current) {
           videoRef.current.src = URL.createObjectURL(file);
         }
@@ -52,7 +52,6 @@ const VehicleDetection = () => {
         setVideoFile(file);
         setError(null);
         
-        // Display the video in the player
         if (videoRef.current) {
           videoRef.current.src = URL.createObjectURL(file);
         }
@@ -101,9 +100,9 @@ const VehicleDetection = () => {
     setIsProcessing(true);
     setProgress(0);
     setError(null);
+    setProcessedVideo(null);
     
     try {
-      // If we're in live mode, capture a frame from the webcam
       if (isLiveMode && videoRef.current && canvasRef.current) {
         const context = canvasRef.current.getContext('2d');
         if (context) {
@@ -118,7 +117,6 @@ const VehicleDetection = () => {
           await sendToBackend(frameFile, true);
         }
       } else if (videoFile) {
-        // Process the uploaded video file
         await sendToBackend(videoFile, false);
       }
     } catch (err) {
@@ -135,7 +133,6 @@ const VehicleDetection = () => {
     formData.append('is_frame', isFrame.toString());
     
     try {
-      // Simulate progress (in a real app, you'd use a proper progress API)
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 95) {
@@ -146,7 +143,6 @@ const VehicleDetection = () => {
         });
       }, 300);
       
-      // Send to backend (adjust the URL to match your Flask backend)
       const response = await fetch('http://localhost:5000/process-video', {
         method: 'POST',
         body: formData,
@@ -162,27 +158,35 @@ const VehicleDetection = () => {
       const data = await response.json();
       setDetectionResults(data.results || []);
       
-      toast({
-        title: "Processing complete",
-        description: `Detected ${data.results?.length || 0} vehicles in the video.`,
-      });
-      
-      // Optionally navigate to results page or show results in this component
-      // navigate("/dashboard", { state: { results: data.results } });
+      if (data.processed_video_url) {
+        setProcessedVideo(data.processed_video_url);
+        toast({
+          title: "Processing complete",
+          description: `Detected ${data.results?.length || 0} vehicles. Processed video ready to view.`,
+        });
+      } else {
+        toast({
+          title: "Processing complete",
+          description: `Detected ${data.results?.length || 0} vehicles in the video.`,
+        });
+      }
     } catch (err) {
       console.error("Backend error:", err);
       setError("Failed to communicate with the backend server. Make sure it's running at http://localhost:5000");
     }
   };
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      
+      if (processedVideo && processedVideo.startsWith('blob:')) {
+        URL.revokeObjectURL(processedVideo);
+      }
     };
-  }, [stream]);
+  }, [stream, processedVideo]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -217,17 +221,27 @@ const VehicleDetection = () => {
                 )}
                 
                 <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden mb-6">
-                  <video 
-                    ref={videoRef}
-                    className="w-full h-full object-contain"
-                    controls={!isLiveMode}
-                    autoPlay={isLiveMode}
-                    playsInline
-                    muted={isLiveMode}
-                  ></video>
+                  {processedVideo ? (
+                    <video 
+                      ref={processedVideoRef}
+                      className="w-full h-full object-contain"
+                      controls
+                      autoPlay
+                      src={processedVideo}
+                    ></video>
+                  ) : (
+                    <video 
+                      ref={videoRef}
+                      className="w-full h-full object-contain"
+                      controls={!isLiveMode}
+                      autoPlay={isLiveMode}
+                      playsInline
+                      muted={isLiveMode}
+                    ></video>
+                  )}
                   <canvas ref={canvasRef} className="hidden"></canvas>
                   
-                  {!videoFile && !isLiveMode && (
+                  {!videoFile && !isLiveMode && !processedVideo && (
                     <div 
                       className="absolute inset-0 flex flex-col items-center justify-center"
                       onDrop={handleDrop}
@@ -265,50 +279,67 @@ const VehicleDetection = () => {
                 
                 <div className="flex justify-between">
                   <div className="space-x-2">
-                    {!isLiveMode ? (
-                      <Button 
-                        variant="outline" 
-                        onClick={startWebcam}
-                        disabled={isProcessing}
-                      >
-                        <Camera className="mr-2 h-4 w-4" />
-                        Use Webcam
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="outline" 
-                        onClick={stopWebcam}
-                        disabled={isProcessing}
-                      >
-                        <Square className="mr-2 h-4 w-4" />
-                        Stop Webcam
-                      </Button>
-                    )}
-                    {!isLiveMode && (
+                    {processedVideo ? (
                       <Button 
                         variant="outline" 
                         onClick={() => {
+                          setProcessedVideo(null);
                           setVideoFile(null);
-                          if (videoRef.current) {
-                            videoRef.current.src = "";
-                          }
-                          fileInputRef.current?.click();
                         }}
-                        disabled={isProcessing}
                       >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Change Video
+                        <Video className="mr-2 h-4 w-4" />
+                        New Detection
                       </Button>
+                    ) : (
+                      <>
+                        {!isLiveMode ? (
+                          <Button 
+                            variant="outline" 
+                            onClick={startWebcam}
+                            disabled={isProcessing}
+                          >
+                            <Camera className="mr-2 h-4 w-4" />
+                            Use Webcam
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            onClick={stopWebcam}
+                            disabled={isProcessing}
+                          >
+                            <Square className="mr-2 h-4 w-4" />
+                            Stop Webcam
+                          </Button>
+                        )}
+                        {!isLiveMode && (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              setVideoFile(null);
+                              if (videoRef.current) {
+                                videoRef.current.src = "";
+                              }
+                              fileInputRef.current?.click();
+                            }}
+                            disabled={isProcessing}
+                          >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Change Video
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                   
-                  <Button 
-                    onClick={processVideo}
-                    disabled={isProcessing || (!videoFile && !isLiveMode)}
-                  >
-                    {isProcessing ? 'Processing...' : 'Detect Vehicles'}
-                    {!isProcessing && <Play className="ml-2 h-4 w-4" />}
-                  </Button>
+                  {!processedVideo && (
+                    <Button 
+                      onClick={processVideo}
+                      disabled={isProcessing || (!videoFile && !isLiveMode)}
+                    >
+                      {isProcessing ? 'Processing...' : 'Detect Vehicles'}
+                      {!isProcessing && <Play className="ml-2 h-4 w-4" />}
+                    </Button>
+                  )}
                 </div>
                 
                 {isProcessing && (
@@ -367,8 +398,6 @@ const VehicleDetection = () => {
                       variant="outline" 
                       className="w-full mt-4"
                       onClick={() => {
-                        // Here you could save results to localStorage or 
-                        // send to another endpoint
                         toast({
                           title: "Results saved",
                           description: "Vehicle detection results have been saved.",
@@ -405,6 +434,10 @@ const VehicleDetection = () => {
             <p className="flex items-start">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-1.5 mr-2"></span>
               <span>Our AI backend analyzes the video to detect vehicles.</span>
+            </p>
+            <p className="flex items-start">
+              <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-1.5 mr-2"></span>
+              <span>The processed video with bounding boxes will be displayed after processing.</span>
             </p>
             <p className="flex items-start">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-1.5 mr-2"></span>
